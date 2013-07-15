@@ -1,7 +1,7 @@
 <html>
 <head>
     <title>Circular bounds</title>
-<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script src="d3.v3.min.js" charset="utf-8"></script>
 <script type="text/javascript" src="timbre.dev.js"></script>
 <link rel="stylesheet" type="text/css" href="style.css">
 </head>
@@ -15,15 +15,18 @@ var margin = 30,
     radius = w / 2,
     strokeWidth = 4,
     hyp2 = Math.pow(radius, 2),
-    nodeBaseRad = 5;
+    nodeBaseRad = 5,
+    nodeCount = 50;
 
 function frequency(i) {
     var f = Math.pow(Math.pow(2, 1/12), i) * 220;
     return f;
 }
 
-var fromA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24].reverse();
-    // perc = T("perc", {a: 50, r: 1000}, T("sin", {freq: 440, mul:0.1}))
+var freqs = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24]
+    fromA = freqs.reverse(),
+    sin = T("sin", {freq:440, mul:0.5}),
+    env = T("perc", {a:50, r:1000}, sin);
 
 var svg = d3.select('#chart').append('svg')
     .attr('width', w + margin * 2)
@@ -56,11 +59,12 @@ function randomNodes(n) {
     return data;
 }
 
-var nodeData = randomNodes(40);
+var nodeData = randomNodes(nodeCount),
+    irwinHall = d3.range(1000).map(d3.random.irwinHall(nodeCount));
 
 var force = d3.layout.force()
-    .charge(1)
-    .friction(0.94)
+    .charge(0)
+    .friction(0.92)
     .gravity(0)
     .nodes(nodeData)
     .size([w, h]);
@@ -90,7 +94,35 @@ function pythag(r, b, coord) {
     return coord;
 }
 
-function collide(node) {
+function initialCollide(node) {
+    var nx1, nx2, ny1, ny2, r;
+    r = node.rad + nodeBaseRad + 15;
+    nx1 = node.x - r;
+    nx2 = node.x + r;
+    ny1 = node.y - r;
+    ny2 = node.y + r;
+
+    return function(quad, x1, y1, x2, y2) {
+        var l, nx, ny;
+        if (quad.point && (quad.point !== node)) {
+            nx = node.x - quad.point.x;
+            ny = node.y - quad.point.y;
+            l = Math.sqrt(nx * nx + ny * ny);
+            r = node.rad + nodeBaseRad + 15 + quad.point.rad;
+
+            if (l < r) {
+                l = (l - r) / l * 0.8;
+                node.x -= nx *= l;
+                node.y -= ny *= l;
+                quad.point.x += nx;
+                quad.point.y += ny;
+            }
+        }
+        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+    };
+};
+
+function soundCollide(node) {
     var nx1, nx2, ny1, ny2, r;
     r = node.rad + nodeBaseRad;
     nx1 = node.x - r;
@@ -107,10 +139,9 @@ function collide(node) {
             r = node.rad + nodeBaseRad + quad.point.rad;
 
             if (l < r) {
-                // perc.nodes[0]._.freq.value = node.freq;
-                // perc.bang().play();
-                T("pluck", {freq:node.freq, mul:0.5}).bang().play();
-                console.log(node.rad)
+                T.reset()
+                sin.set({freq: node.freq})
+                env.bang().play()
                 l = (l - r) / l * 0.5;
                 node.x -= nx *= l;
                 node.y -= ny *= l;
@@ -122,21 +153,47 @@ function collide(node) {
     };
 };
 
-function tick(e) {
+function randomMove(coord) {
+    plusMinus = Math.random() < 0.5 ? -0.05 : 0.05;
+    randIndex = Math.floor(Math.random() * nodeCount)
+    coord += plusMinus * irwinHall[randIndex];
+    return coord
+}
+
+function initialTick(e) {
     var q = d3.geom.quadtree(nodeData),
         i = 0,
         n = nodeData.length;
 
-    while (++i < n) q.visit(collide(nodeData[i]))
+    while (++i < n) q.visit(initialCollide(nodeData[i]))
 
-    nodes.attr('cx', function (d) { return d.x = pythag(d.rad, d.y, d.x); })
-        .attr('cy', function (d) { return d.y = pythag(d.rad, d.x, d.y); });
+    nodes.attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
+        .attr('cy', function (d) { return d.y = pythag(d.rad, d.x, randomMove(d.y)); });
+}
+
+function soundTick(e) {
+    if (e.alpha < 0.006) {
+        force.resume()
+    };
+
+    var q = d3.geom.quadtree(nodeData),
+        i = 0,
+        n = nodeData.length;
+
+    while (++i < n) q.visit(soundCollide(nodeData[i]))
+
+    nodes.attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
+        .attr('cy', function (d) { return d.y = pythag(d.rad, d.x,randomMove(d.y)); });
 }
 
 nodes.call(force.drag);
 
-force.on('tick', tick)
-    .start();
+force.on('tick', initialTick).start();
+for (var i = 100000; i > 0; --i) force.tick();
+force.stop();
+
+force.on('tick', soundTick).start();
+
 </script>
 </body>
 </html>
