@@ -1,0 +1,142 @@
+<html>
+<head>
+    <title>Circular bounds</title>
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script type="text/javascript" src="timbre.dev.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+<div id="chart"></div>
+
+<script>
+var margin = 30,
+    w = 500 - margin * 2,
+    h = w,
+    radius = w / 2,
+    strokeWidth = 4,
+    hyp2 = Math.pow(radius, 2),
+    nodeBaseRad = 5;
+
+function frequency(i) {
+    var f = Math.pow(Math.pow(2, 1/12), i) * 220;
+    return f;
+}
+
+var fromA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24].reverse();
+    // perc = T("perc", {a: 50, r: 1000}, T("sin", {freq: 440, mul:0.1}))
+
+var svg = d3.select('#chart').append('svg')
+    .attr('width', w + margin * 2)
+    .attr('height', h + margin * 2)
+.append('g')
+    .attr('transform', 'translate(' + margin + ',' + margin + ')');
+
+var pool = svg.append('circle')
+    .style('stroke-width', strokeWidth * 2)
+    .attr({
+        class: 'pool',
+        r: radius,
+        cy: 0,
+        cx: 0,
+        transform: 'translate(' + w / 2 + ',' + h / 2 + ')'
+    });
+
+function randomNodes(n) {
+    var data = [],
+        range = d3.range(n);
+
+    for (var i = range.length - 1; i >= 0; i--) {
+        r = Math.floor(Math.random() * 11)
+        data.push({
+            rad: r,
+            freq: frequency(fromA[r])
+        });
+    }
+
+    return data;
+}
+
+var nodeData = randomNodes(40);
+
+var force = d3.layout.force()
+    .charge(1)
+    .friction(0.94)
+    .gravity(0)
+    .nodes(nodeData)
+    .size([w, h]);
+
+var nodes = svg.selectAll('.nodes')
+    .data(nodeData)
+.enter().append('circle')
+    .attr({
+        class: 'nodes',
+        r: function (d) { return d.rad + nodeBaseRad; },
+        fill: "#fff8d1"
+    });
+
+function pythag(r, b, coord) {
+    r += nodeBaseRad;
+
+    // force use of b coord that exists in circle to avoid sqrt(x<0)
+    b = Math.min(w - r - strokeWidth, Math.max(r + strokeWidth, b));
+
+    var b2 = Math.pow((b - radius), 2),
+        a = Math.sqrt(hyp2 - b2);
+
+    // radius - sqrt(hyp^2 - b^2) < coord < sqrt(hyp^2 - b^2) + radius
+    coord = Math.max(radius - a + r + strokeWidth,
+                Math.min(a + radius - r - strokeWidth, coord));
+
+    return coord;
+}
+
+function collide(node) {
+    var nx1, nx2, ny1, ny2, r;
+    r = node.rad + nodeBaseRad;
+    nx1 = node.x - r;
+    nx2 = node.x + r;
+    ny1 = node.y - r;
+    ny2 = node.y + r;
+
+    return function(quad, x1, y1, x2, y2) {
+        var l, nx, ny;
+        if (quad.point && (quad.point !== node)) {
+            nx = node.x - quad.point.x;
+            ny = node.y - quad.point.y;
+            l = Math.sqrt(nx * nx + ny * ny);
+            r = node.rad + nodeBaseRad + quad.point.rad;
+
+            if (l < r) {
+                // perc.nodes[0]._.freq.value = node.freq;
+                // perc.bang().play();
+                T("pluck", {freq:node.freq, mul:0.5}).bang().play();
+                console.log(node.rad)
+                l = (l - r) / l * 0.5;
+                node.x -= nx *= l;
+                node.y -= ny *= l;
+                quad.point.x += nx;
+                quad.point.y += ny;
+            }
+        }
+        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+    };
+};
+
+function tick(e) {
+    var q = d3.geom.quadtree(nodeData),
+        i = 0,
+        n = nodeData.length;
+
+    while (++i < n) q.visit(collide(nodeData[i]))
+
+    nodes.attr('cx', function (d) { return d.x = pythag(d.rad, d.y, d.x); })
+        .attr('cy', function (d) { return d.y = pythag(d.rad, d.x, d.y); });
+}
+
+nodes.call(force.drag);
+
+force.on('tick', tick)
+    .start();
+</script>
+</body>
+</html>
