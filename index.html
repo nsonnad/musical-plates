@@ -4,8 +4,15 @@
 <script src="d3.v3.min.js" charset="utf-8"></script>
 <script type="text/javascript" src="timbre.dev.js"></script>
 <link rel="stylesheet" type="text/css" href="style.css">
+<link rel="stylesheet" type="text/css" href="bootstrap.min.css">
 </head>
 <body>
+<div class="btn-goup">
+    <button class="btn scale" id="pentatonic">Pentatonic scale</button>
+    <button class="btn scale" id="blues">Blues scale</button>
+    <button class="btn scale" id="aeolian">Aeolian mode</button>
+    <button class="btn scale" id="chromatic">Chromatic scale</button>
+</div>
 <div id="chart"></div>
 
 <script>
@@ -23,10 +30,16 @@ function frequency(i) {
     return f;
 }
 
-var freqs = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24]
-    fromA = freqs.reverse(),
+var freqs = {
+    'pentatonic':   [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24],
+    'blues':        [0, 3, 5, 6, 7, 10, 12, 15, 17, 18, 19, 22, 24],
+    'aeolian':      [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22, 24],
+    'chromatic':    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+}
+
+var fromA = freqs['aeolian'].reverse(),
     sin = T("sin", {freq:440, mul:0.5}),
-    env = T("perc", {a:50, r:1000}, sin);
+    perc = T("perc", {a:30, r:300}, sin);
 
 var svg = d3.select('#chart').append('svg')
     .attr('width', w + margin * 2)
@@ -44,39 +57,33 @@ var pool = svg.append('circle')
         transform: 'translate(' + w / 2 + ',' + h / 2 + ')'
     });
 
-function randomNodes(n) {
+function randomNodes(n, scale) {
     var data = [],
         range = d3.range(n);
 
     for (var i = range.length - 1; i >= 0; i--) {
-        r = Math.floor(Math.random() * 11)
+        r = Math.floor(Math.random() * (freqs[scale].length - 1))
         data.push({
-            rad: r,
-            freq: frequency(fromA[r])
+            rad: r * 1.5,
+            freq: frequency(freqs[scale][r])
         });
     }
 
     return data;
 }
 
-var nodeData = randomNodes(nodeCount),
-    irwinHall = d3.range(1000).map(d3.random.irwinHall(nodeCount));
-
 var force = d3.layout.force()
     .charge(0)
     .friction(0.92)
     .gravity(0)
-    .nodes(nodeData)
     .size([w, h]);
 
-var nodes = svg.selectAll('.nodes')
-    .data(nodeData)
-.enter().append('circle')
+var touched = svg.append("circle")
     .attr({
-        class: 'nodes',
-        r: function (d) { return d.rad + nodeBaseRad; },
-        fill: "#fff8d1"
-    });
+        r: 4,
+        fill: "#0fff53"
+    })
+    .style('display', 'none');
 
 function pythag(r, b, coord) {
     r += nodeBaseRad;
@@ -94,106 +101,141 @@ function pythag(r, b, coord) {
     return coord;
 }
 
-function initialCollide(node) {
-    var nx1, nx2, ny1, ny2, r;
-    r = node.rad + nodeBaseRad + 15;
-    nx1 = node.x - r;
-    nx2 = node.x + r;
-    ny1 = node.y - r;
-    ny2 = node.y + r;
 
-    return function(quad, x1, y1, x2, y2) {
-        var l, nx, ny;
-        if (quad.point && (quad.point !== node)) {
-            nx = node.x - quad.point.x;
-            ny = node.y - quad.point.y;
-            l = Math.sqrt(nx * nx + ny * ny);
-            r = node.rad + nodeBaseRad + 15 + quad.point.rad;
 
-            if (l < r) {
-                l = (l - r) / l * 0.8;
-                node.x -= nx *= l;
-                node.y -= ny *= l;
-                quad.point.x += nx;
-                quad.point.y += ny;
+function redraw(n, scales) {
+    var irwinHall = d3.range(1000).map(d3.random.irwinHall(n));
+
+    nodeData = randomNodes(n, scales)
+    force.nodes(nodeData);
+
+    var nodes = svg.selectAll('.nodes')
+        .data(nodeData)
+
+    nodes.enter().append('circle')
+        .attr({
+            class: 'nodes',
+            fill: "#fff8d1"
+        });
+
+    nodes.attr('r', function (d) { return d.rad + nodeBaseRad; });
+    nodes.exit().remove();
+
+    function initialCollide(node) {
+        var nx1, nx2, ny1, ny2, r;
+        r = node.rad + nodeBaseRad + 15;
+        nx1 = node.x - r;
+        nx2 = node.x + r;
+        ny1 = node.y - r;
+        ny2 = node.y + r;
+
+        return function(quad, x1, y1, x2, y2) {
+            var l, nx, ny;
+            if (quad.point && (quad.point !== node)) {
+                nx = node.x - quad.point.x;
+                ny = node.y - quad.point.y;
+                l = Math.sqrt(nx * nx + ny * ny);
+                r = node.rad + nodeBaseRad + 15 + quad.point.rad;
+
+                if (l < r) {
+                    l = (l - r) / l * 0.8;
+                    node.x -= nx *= l;
+                    node.y -= ny *= l;
+                    quad.point.x += nx;
+                    quad.point.y += ny;
+                }
             }
-        }
-        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+            return nx1 > nx2 || nx2 < nx1 || y1 > ny2 || y2 < ny1;
+        };
     };
-};
 
-function soundCollide(node) {
-    var nx1, nx2, ny1, ny2, r;
-    r = node.rad + nodeBaseRad;
-    nx1 = node.x - r;
-    nx2 = node.x + r;
-    ny1 = node.y - r;
-    ny2 = node.y + r;
+    function soundCollide(node) {
+        var nx1, nx2, ny1, ny2, r;
+        r = node.rad + nodeBaseRad;
+        nx1 = node.x - r;
+        nx2 = node.x + r;
+        ny1 = node.y - r;
+        ny2 = node.y + r;
 
-    return function(quad, x1, y1, x2, y2) {
-        var l, nx, ny;
-        if (quad.point && (quad.point !== node)) {
-            nx = node.x - quad.point.x;
-            ny = node.y - quad.point.y;
-            l = Math.sqrt(nx * nx + ny * ny);
-            r = node.rad + nodeBaseRad + quad.point.rad;
+        return function(quad, x1, y1, x2, y2) {
+            var l, nx, ny;
+            if (quad.point && (quad.point !== node)) {
+                nx = node.x - quad.point.x;
+                ny = node.y - quad.point.y;
+                l = Math.sqrt(nx * nx + ny * ny);
+                r = node.rad + nodeBaseRad + quad.point.rad;
 
-            if (l < r) {
-                T.reset()
-                sin.set({freq: node.freq})
-                env.bang().play()
-                l = (l - r) / l * 0.5;
-                node.x -= nx *= l;
-                node.y -= ny *= l;
-                quad.point.x += nx;
-                quad.point.y += ny;
+                if (l < r) {
+                    sin.set({freq: node.freq})
+                    perc.bang().play()
+                    l = (l - r) / l * 0.5;
+                    node.x -= nx *= l;
+                    node.y -= ny *= l;
+                    quad.point.x += nx;
+                    quad.point.y += ny;
+
+                    touched.transition()
+                        .attr('cx', node.x).attr('cy', node.y).attr('r', 6)
+                        .style('display', 'inline')
+                        .transition()
+                            .attr('r', 4)
+                            .style('display', 'none');
+                }
             }
-        }
-        return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
-    };
-};
-
-function randomMove(coord) {
-    plusMinus = Math.random() < 0.5 ? -0.05 : 0.05;
-    randIndex = Math.floor(Math.random() * nodeCount)
-    coord += plusMinus * irwinHall[randIndex];
-    return coord
-}
-
-function initialTick(e) {
-    var q = d3.geom.quadtree(nodeData),
-        i = 0,
-        n = nodeData.length;
-
-    while (++i < n) q.visit(initialCollide(nodeData[i]))
-
-    nodes.attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
-        .attr('cy', function (d) { return d.y = pythag(d.rad, d.x, randomMove(d.y)); });
-}
-
-function soundTick(e) {
-    if (e.alpha < 0.006) {
-        force.resume()
+            return nx1 > nx2 || nx2 < nx1 || ny1 > ny2 || ny2 < ny1;
+        };
     };
 
-    var q = d3.geom.quadtree(nodeData),
-        i = 0,
-        n = nodeData.length;
+    function randomMove(coord) {
+        plusMinus = Math.random() < 0.5 ? -0.05 : 0.05;
+        randIndex = Math.floor(Math.random() * nodeCount)
+        coord += plusMinus * irwinHall[randIndex];
+        return coord
+    }
 
-    while (++i < n) q.visit(soundCollide(nodeData[i]))
+    function initialTick(e) {
+        var q = d3.geom.quadtree(nodeData),
+            i = 0,
+            n = nodeData.length;
 
-    nodes.attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
-        .attr('cy', function (d) { return d.y = pythag(d.rad, d.x,randomMove(d.y)); });
+        while (++i < n) q.visit(initialCollide(nodeData[i]))
+
+        nodes
+            .attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
+            .attr('cy', function (d) { return d.y = pythag(d.rad, d.x, randomMove(d.y)); });
+    }
+
+    function soundTick(e) {
+        if (e.alpha < 0.006) {
+            force.resume()
+        };
+
+        var q = d3.geom.quadtree(nodeData),
+            i = 0,
+            n = nodeData.length;
+
+        while (++i < n) q.visit(soundCollide(nodeData[i]))
+
+        nodes
+            .attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
+            .attr('cy', function (d) { return d.y = pythag(d.rad, d.x,randomMove(d.y)); });
+    }
+
+    nodes.call(force.drag);
+
+    force.on('tick', initialTick).start();
+    for (var i = 10000; i > 0; --i) force.tick();
+    force.stop();
+
+    force.on('tick', soundTick).start();
 }
 
-nodes.call(force.drag);
+d3.selectAll('.scale').on('click', function() {
+    var id = d3.select(this).property('id');
+    redraw(50, id);
+})
 
-force.on('tick', initialTick).start();
-for (var i = 100000; i > 0; --i) force.tick();
-force.stop();
-
-force.on('tick', soundTick).start();
-
+redraw(50, 'pentatonic');
 </script>
 </body>
 </html>
