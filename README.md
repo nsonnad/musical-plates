@@ -1,0 +1,1 @@
+A little project made with [d3](http://d3js.org/) and [timbre.js](http://mohayonao.github.io/timbre.js/), inspired by an [art installation by Céleste Boursier-Mougenot](http://www.ngv.vic.gov.au/whats-on/exhibitions/exhibitions/celeste-boursier-mougenot-clinamen). View live version [here](http://theoldbeggar.com/fun/musical-pool/).
