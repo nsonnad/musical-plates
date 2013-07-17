@@ -13,7 +13,7 @@
     <h1>Musical pool</h1>
     <p>This was made by <a href="http://twitter.com/nsonnad">Nikhil Sonnad</a>, but the concept was inspired by the beautiful <a href="http://www.ngv.vic.gov.au/whats-on/exhibitions/exhibitions/celeste-boursier-mougenot-clinamen"><em>clinamen</em> art installation by Céleste Boursier-Mougenot</a>, in which a small symphony is produced by porcelain bowls floating in a pool of water. The piece is now on display at the National Gallery of Victoria, Melbourne.</p>
 
-    <p>In this online 'version', white circles move about randomly and emit a sound proportional to their size upon contact. You can drag them around yourself, as well, or change the musical scale used to generate pitch.
+    <p>In this online 'version', white circles move about randomly and emit a sound proportional to their size upon contact. You can drag them around yourself, as well, or change the musical scale used to generate pitch. (<a href="https://github.com/nsonnad/musical-plates">View source</a>)
     <br />
         <h4>Pitch lies along:</h4>
         <div class="btn-group btn-group-vertical">
@@ -27,7 +27,7 @@
     <div id="right" class="inner">
         <div id="chart"></div>
     </div>
-    <footer><p>Visual built in <a href="http://d3js.org/">d3.js</a>, audio powered by <a href="http://mohayonao.github.io/timbre.js/">timbre.js</a>.</p></footer>
+    <footer><p>Visual built in <a href="http://d3js.org/">d3.js</a>, audio powered by <a href="http://mohayonao.github.io/timbre.js/">timbre.js</a>. Runs best in Google Chrome.</p></footer>
 </div>
 
 <script>
@@ -50,10 +50,10 @@ d3.selection.prototype.moveToFront = function() {
 };
 
 var freqs = {
-    'pentatonic':   [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24],
-    'blues':        [0, 3, 5, 6, 7, 10, 12, 15, 17, 18, 19, 22, 24],
-    'aeolian':      [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22, 24],
-    'chromatic':    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    'pentatonic':   [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36],
+    'blues':        [0, 3, 5, 6, 7, 10, 12, 14, 17, 18, 19, 22, 24, 27, 29, 30, 31, 34, 36],
+    'aeolian':      [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22, 24, 26, 27, 29, 31, 32, 34, 36],
+    'chromatic':    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 }
 
 var sin = T("sin", {freq:440, mul:0.5}),
@@ -77,13 +77,14 @@ var pool = svg.append('circle')
 
 function randomNodes(n, scale) {
     var data = [],
-        range = d3.range(n);
+        range = d3.range(n),
+        notes = freqs[scale].reverse();
 
     for (var i = range.length - 1; i >= 0; i--) {
-        r = Math.floor(Math.random() * (freqs[scale].length)) + 1
+        r = Math.floor(Math.random() * (notes.length)) + 1
         data.push({
-            rad: r * 1.75,
-            freq: frequency(freqs[scale][r - 1])
+            rad: r * 1.2,
+            freq: frequency(notes[r - 1])
         });
     }
 
