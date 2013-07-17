@@ -1,23 +1,38 @@
 <html>
 <head>
-    <title>Circular bounds</title>
+    <meta charset="UTF-8">
+<title>Musical pool</title>
 <script src="d3.v3.min.js" charset="utf-8"></script>
 <script type="text/javascript" src="timbre.dev.js"></script>
 <link rel="stylesheet" type="text/css" href="style.css">
 <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
 </head>
 <body>
-<div class="btn-goup">
-    <button class="btn scale" id="pentatonic">Pentatonic scale</button>
-    <button class="btn scale" id="blues">Blues scale</button>
-    <button class="btn scale" id="aeolian">Aeolian mode</button>
-    <button class="btn scale" id="chromatic">Chromatic scale</button>
+<div id="wrap">
+    <div id="left" class="inner">
+    <h1>Musical pool</h1>
+    <p>This was made by <a href="http://twitter.com/nsonnad">Nikhil Sonnad</a>, but the concept was inspired by the beautiful <a href="http://www.ngv.vic.gov.au/whats-on/exhibitions/exhibitions/celeste-boursier-mougenot-clinamen"><em>clinamen</em> art installation by Céleste Boursier-Mougenot</a>, in which a small symphony is produced by porcelain bowls floating in a pool of water. The piece is now on display at the National Gallery of Victoria, Melbourne.</p>
+
+    <p>In this online 'version', white circles move about randomly and emit a sound proportional to their size upon contact. You can drag them around yourself, as well, or change the musical scale used to generate pitch.
+    <br />
+        <h4>Pitch lies along:</h4>
+        <div class="btn-group btn-group-vertical">
+            <button class="btn scale" id="pentatonic">Pentatonic scale</button>
+            <button class="btn scale" id="blues">Blues scale</button>
+            <button class="btn scale" id="aeolian">Aeolian mode</button>
+            <button class="btn scale" id="chromatic">Chromatic scale</button>
+        </div>
+    </div>
+
+    <div id="right" class="inner">
+        <div id="chart"></div>
+    </div>
+    <footer><p>Visual built in <a href="http://d3js.org/">d3.js</a>, audio powered by <a href="http://mohayonao.github.io/timbre.js/">timbre.js</a>.</p></footer>
 </div>
-<div id="chart"></div>
 
 <script>
 var margin = 30,
-    w = 500 - margin * 2,
+    w = 650 - margin * 2,
     h = w,
     radius = w / 2,
     strokeWidth = 4,
@@ -30,6 +45,10 @@ function frequency(i) {
     return f;
 }
 
+d3.selection.prototype.moveToFront = function() {
+    return this.each(function() { this.parentNode.appendChild(this);});
+};
+
 var freqs = {
     'pentatonic':   [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24],
     'blues':        [0, 3, 5, 6, 7, 10, 12, 15, 17, 18, 19, 22, 24],
@@ -37,8 +56,7 @@ var freqs = {
     'chromatic':    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 }
 
-var fromA = freqs['aeolian'].reverse(),
-    sin = T("sin", {freq:440, mul:0.5}),
+var sin = T("sin", {freq:440, mul:0.5}),
     perc = T("perc", {a:30, r:300}, sin);
 
 var svg = d3.select('#chart').append('svg')
@@ -62,10 +80,10 @@ function randomNodes(n, scale) {
         range = d3.range(n);
 
     for (var i = range.length - 1; i >= 0; i--) {
-        r = Math.floor(Math.random() * (freqs[scale].length - 1))
+        r = Math.floor(Math.random() * (freqs[scale].length)) + 1
         data.push({
-            rad: r * 1.5,
-            freq: frequency(freqs[scale][r])
+            rad: r * 1.75,
+            freq: frequency(freqs[scale][r - 1])
         });
     }
 
@@ -81,7 +99,7 @@ var force = d3.layout.force()
 var touched = svg.append("circle")
     .attr({
         r: 4,
-        fill: "#0fff53"
+        fill: "#ffc038"
     })
     .style('display', 'none');
 
@@ -101,12 +119,10 @@ function pythag(r, b, coord) {
     return coord;
 }
 
-
-
-function redraw(n, scales) {
+function redraw(n, scale) {
     var irwinHall = d3.range(1000).map(d3.random.irwinHall(n));
 
-    nodeData = randomNodes(n, scales)
+    nodeData = randomNodes(n, scale)
     force.nodes(nodeData);
 
     var nodes = svg.selectAll('.nodes')
@@ -116,38 +132,12 @@ function redraw(n, scales) {
         .attr({
             class: 'nodes',
             fill: "#fff8d1"
-        });
+        })
+        .style('opacity', 0.0001)
+        .transition().duration(200).style('opacity', 0.9);
 
     nodes.attr('r', function (d) { return d.rad + nodeBaseRad; });
-    nodes.exit().remove();
-
-    function initialCollide(node) {
-        var nx1, nx2, ny1, ny2, r;
-        r = node.rad + nodeBaseRad + 15;
-        nx1 = node.x - r;
-        nx2 = node.x + r;
-        ny1 = node.y - r;
-        ny2 = node.y + r;
-
-        return function(quad, x1, y1, x2, y2) {
-            var l, nx, ny;
-            if (quad.point && (quad.point !== node)) {
-                nx = node.x - quad.point.x;
-                ny = node.y - quad.point.y;
-                l = Math.sqrt(nx * nx + ny * ny);
-                r = node.rad + nodeBaseRad + 15 + quad.point.rad;
-
-                if (l < r) {
-                    l = (l - r) / l * 0.8;
-                    node.x -= nx *= l;
-                    node.y -= ny *= l;
-                    quad.point.x += nx;
-                    quad.point.y += ny;
-                }
-            }
-            return nx1 > nx2 || nx2 < nx1 || y1 > ny2 || y2 < ny1;
-        };
-    };
+    nodes.exit().transition().duration(200).style('opacity', 0.0001).remove();
 
     function soundCollide(node) {
         var nx1, nx2, ny1, ny2, r;
@@ -187,22 +177,10 @@ function redraw(n, scales) {
     };
 
     function randomMove(coord) {
-        plusMinus = Math.random() < 0.5 ? -0.05 : 0.05;
-        randIndex = Math.floor(Math.random() * nodeCount)
+        plusMinus = Math.random() < 0.5 ? -0.08 : 0.08;
+        randIndex = Math.floor(Math.random() * n)
         coord += plusMinus * irwinHall[randIndex];
         return coord
-    }
-
-    function initialTick(e) {
-        var q = d3.geom.quadtree(nodeData),
-            i = 0,
-            n = nodeData.length;
-
-        while (++i < n) q.visit(initialCollide(nodeData[i]))
-
-        nodes
-            .attr('cx', function (d) { return d.x = pythag(d.rad, d.y, randomMove(d.x)); })
-            .attr('cy', function (d) { return d.y = pythag(d.rad, d.x, randomMove(d.y)); });
     }
 
     function soundTick(e) {
@@ -222,20 +200,24 @@ function redraw(n, scales) {
     }
 
     nodes.call(force.drag);
-
-    force.on('tick', initialTick).start();
-    for (var i = 10000; i > 0; --i) force.tick();
-    force.stop();
+    touched.moveToFront();
 
     force.on('tick', soundTick).start();
 }
 
 d3.selectAll('.scale').on('click', function() {
+    d3.selectAll('.scale').classed('btn-inverse', false);
+    d3.select(this).classed('btn-inverse', true);
     var id = d3.select(this).property('id');
-    redraw(50, id);
-})
+    redraw(35, id);
+});
 
-redraw(50, 'pentatonic');
+d3.select('#pentatonic').classed('btn-inverse', true);
+
+setTimeout(function() {
+    redraw(35, 'pentatonic');
+}, 1000);
+
 </script>
 </body>
 </html>
