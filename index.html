@@ -38,7 +38,8 @@ var margin = 30,
     strokeWidth = 4,
     hyp2 = Math.pow(radius, 2),
     nodeBaseRad = 5,
-    nodeCount = 50;
+    nodeCount = 50,
+    randMoveDist = 0.002;
 
 function frequency(i) {
     // formula for getting frequency according to distance from A440
@@ -85,7 +86,6 @@ function randomNodes(n, scale) {
 
     for (var i = range.length - 1; i >= 0; i--) {
         r = Math.floor(Math.random() * (notes.length)) + 1
-        console.log(r)
         data.push({
             rad: r * 1.2,
             freq: frequency(notes[r - 1])
@@ -185,7 +185,7 @@ function redraw(n, scale) {
 
     // move around!
     function randomMove(coord) {
-        plusMinus = Math.random() < 0.5 ? -0.08 : 0.08;
+        plusMinus = Math.random() < 0.5 ? -randMoveDist : randMoveDist;
         randIndex = Math.floor(Math.random() * n)
         coord += plusMinus * irwinHall[randIndex];
         return coord
