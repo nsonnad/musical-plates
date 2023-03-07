@@ -1,9 +1,10 @@
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
 <title>Musical pool</title>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-<script type="text/javascript" src="http://mohayonao.github.io/timbre.js/timbre.js"></script>
+<script type="text/javascript" src="timbre.dev.js"></script>
 <link rel="stylesheet" type="text/css" href="style.css">
 <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
 </head>
@@ -223,9 +224,6 @@ d3.selectAll('.scale').on('click', function() {
 
 d3.select('#pentatonic').classed('btn-inverse', true);
 
-setTimeout(function() {
-    redraw(35, 'pentatonic');
-}, 1000);
 
 </script>
 </body>
